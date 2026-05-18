@@ -29,6 +29,12 @@ dotnet restore
 dotnet run --urls http://localhost:5265
 ```
 
+## QA
+
+```powershell
+dotnet test PeopleOS.Backend.sln
+```
+
 ## Demo Accounts
 
 - `admin@peopleos.dev` / `Admin@123`
