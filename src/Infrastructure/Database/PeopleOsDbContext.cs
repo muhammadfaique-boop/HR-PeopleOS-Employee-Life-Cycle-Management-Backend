@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using PeopleOS.Api.Models;
+using PeopleOS.Api.Domain.Entities;
 
-namespace PeopleOS.Api.Data;
+namespace PeopleOS.Api.Infrastructure.Database;
 
 public class PeopleOsDbContext(DbContextOptions<PeopleOsDbContext> options) : DbContext(options)
 {

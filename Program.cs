@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using PeopleOS.Api.Data;
-using PeopleOS.Api.Repositories;
-using PeopleOS.Api.Services;
+using PeopleOS.Api.Application.Interfaces;
+using PeopleOS.Api.Application.Services;
+using PeopleOS.Api.Infrastructure.Database;
+using PeopleOS.Api.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -1,0 +1,314 @@
+using System.Text;
+using PeopleOS.Api.Application.DTOs;
+using PeopleOS.Api.Application.Interfaces;
+using PeopleOS.Api.Application.Mappers;
+using PeopleOS.Api.Common.Utils;
+using PeopleOS.Api.Domain.Entities;
+
+namespace PeopleOS.Api.Application.Services;
+
+public class AuthService(IAuthRepository authRepository, IEmployeeRepository employeeRepository) : IAuthService
+{
+    public async Task<LoginResponseDto?> LoginAsync(LoginRequestDto request)
+    {
+        var user = await authRepository.FindByCredentialsAsync(request.Email, request.Password);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var employee = await employeeRepository.GetByIdAsync(user.EmployeeId);
+        return new LoginResponseDto($"demo-token-{user.Id}", user.Email, user.Role, employee?.ToResponse());
+    }
+
+    public async Task<bool> ChangePasswordAsync(ChangePasswordRequestDto request)
+    {
+        var user = await authRepository.FindByEmailAsync(request.Email);
+        if (user is null || user.Password != request.CurrentPassword)
+        {
+            return false;
+        }
+
+        user.Password = request.NewPassword;
+        await authRepository.SaveChangesAsync();
+        return true;
+    }
+}
+
+public class DashboardService(
+    IEmployeeRepository employees,
+    ILifecycleRepository lifecycle,
+    IApprovalRepository approvals,
+    ILeaveRepository leaves,
+    IReferenceDataRepository referenceData) : IDashboardService
+{
+    public async Task<DashboardResponseDto> GetDashboardAsync()
+    {
+        var employeeList = await employees.GetAllAsync();
+        var activeEmployee = await employees.GetByEmailAsync("muhammad.faique@peopleos.dev") ?? employeeList.First();
+        var pendingTasks = await approvals.GetPendingAsync();
+        var approvedLeaves = await leaves.GetApprovedUpcomingAsync(DateOnly.FromDateTime(DateTime.Today));
+
+        var whoIsOut = approvedLeaves.Select(leave =>
+        {
+            var employee = employeeList.FirstOrDefault(x => x.Id == leave.EmployeeId);
+            return new WhoIsOutResponseDto(
+                employee?.FullName ?? "Employee",
+                leave.LeaveType,
+                leave.FromDate,
+                leave.ToDate,
+                employee?.Department ?? "Unassigned");
+        }).ToList();
+
+        return new DashboardResponseDto(
+            new[]
+            {
+                new DashboardMetricResponseDto("Active employees", employeeList.Count(x => x.LifecycleStatus == "Active").ToString(), "teal"),
+                new DashboardMetricResponseDto("On probation", employeeList.Count(x => x.LifecycleStatus == "Probation").ToString(), "amber"),
+                new DashboardMetricResponseDto("Pending approvals", pendingTasks.Count.ToString(), "violet"),
+                new DashboardMetricResponseDto("Profile completion", $"{activeEmployee.ProfileCompletion}%", "rose")
+            },
+            activeEmployee.ToResponse(),
+            employeeList.Select(x => x.ToResponse()).ToList(),
+            (await lifecycle.GetAllAsync()).Select(x => x.ToResponse()).ToList(),
+            pendingTasks.Select(x => x.ToResponse()).ToList(),
+            whoIsOut,
+            (await referenceData.GetHolidaysAsync()).Select(x => x.ToResponse()).ToList(),
+            (await referenceData.GetAnnouncementsAsync()).Select(x => x.ToResponse()).ToList(),
+            (await referenceData.GetQuickActionsAsync()).Select(x => x.ToResponse()).ToList(),
+            (await referenceData.GetLifecycleSignalsAsync()).Select(x => x.ToResponse()).ToList(),
+            (await referenceData.GetRecentActivityAsync()).Select(x => x.Message).ToList());
+    }
+}
+
+public class EmployeeService(
+    IEmployeeRepository employees,
+    ILifecycleRepository lifecycle,
+    IDocumentRepository documents,
+    ILeaveRepository leaves) : IEmployeeService
+{
+    public async Task<List<EmployeeResponseDto>> GetEmployeesAsync() =>
+        (await employees.GetAllAsync()).Select(x => x.ToResponse()).ToList();
+
+    public async Task<EmployeeProfileResponseDto?> GetProfileAsync(int employeeId)
+    {
+        var employee = await employees.GetByIdAsync(employeeId);
+        if (employee is null)
+        {
+            return null;
+        }
+
+        return new EmployeeProfileResponseDto(
+            employee.ToResponse(),
+            (await documents.GetByEmployeeAsync(employeeId)).Select(x => x.ToResponse()).ToList(),
+            (await lifecycle.GetByEmployeeAsync(employeeId)).Select(x => x.ToResponse()).ToList(),
+            (await leaves.GetBalancesAsync(employeeId)).Select(x => x.ToResponse()).ToList());
+    }
+
+    public async Task<EmployeeResponseDto?> UpdateProfileAsync(int employeeId, UpdateEmployeeProfileRequestDto request)
+    {
+        var employee = await employees.GetByIdAsync(employeeId);
+        if (employee is null)
+        {
+            return null;
+        }
+
+        employee.PreferredLanguage = request.PreferredLanguage;
+        employee.ProfileImageUrl = request.ProfileImageUrl;
+        await employees.SaveChangesAsync();
+        return employee.ToResponse();
+    }
+}
+
+public class AttendanceService(
+    IAttendanceRepository attendance,
+    IEmployeeRepository employees,
+    IApprovalRepository approvals,
+    IUnitOfWork unitOfWork) : IAttendanceService
+{
+    public async Task<AttendanceResponseDto> GetAttendanceAsync(int employeeId) =>
+        new(
+            (await attendance.GetRecordsAsync(employeeId)).Select(x => x.ToResponse()).ToList(),
+            (await attendance.GetCorrectionsAsync(employeeId)).Select(x => x.ToResponse()).ToList());
+
+    public async Task<AttendanceCorrectionResponseDto?> CreateCorrectionAsync(CreateAttendanceCorrectionRequestDto request)
+    {
+        var employee = await employees.GetByIdAsync(request.EmployeeId);
+        if (employee is null)
+        {
+            return null;
+        }
+
+        var correction = new AttendanceCorrection
+        {
+            Id = await attendance.NextCorrectionIdAsync(),
+            EmployeeId = request.EmployeeId,
+            WorkDate = request.WorkDate,
+            RequestedChange = request.RequestedChange,
+            Reason = request.Reason,
+            Status = "Pending line manager",
+            Approver = employee.Manager
+        };
+
+        await attendance.AddCorrectionAsync(correction);
+        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Attendance Correction", $"{employee.FullName} - {request.WorkDate:MMM dd, yyyy}", employee.FullName, employee.Manager, 2));
+        await unitOfWork.SaveChangesAsync();
+
+        return correction.ToResponse();
+    }
+
+    public async Task<AttendanceDownloadResponseDto> DownloadAsync(string format, int employeeId)
+    {
+        var records = await attendance.GetRecordsAsync(employeeId);
+        var lines = records.Select(x => $"{x.WorkDate:yyyy-MM-dd},{x.CheckIn},{x.CheckOut},{x.Status},{x.Source}");
+        var content = "Date,Check In,Check Out,Status,Source\r\n" + string.Join("\r\n", lines);
+
+        if (format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            var employee = await employees.GetByIdAsync(employeeId);
+            var title = $"PeopleOS Attendance Log - {employee?.FullName ?? "Employee"}";
+            var body = title + "\n\n" + content.Replace(",", "    ");
+            return new AttendanceDownloadResponseDto($"Login_UserId_{employeeId}.Attendance log.pdf", "application/pdf", PdfBuilder.Build(body));
+        }
+
+        return new AttendanceDownloadResponseDto($"Login_UserId_{employeeId}.Attendance log.csv", "text/csv", Encoding.UTF8.GetBytes(content));
+    }
+
+    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays) =>
+        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)) };
+}
+
+public class LeaveService(
+    ILeaveRepository leaves,
+    IEmployeeRepository employees,
+    IApprovalRepository approvals,
+    IUnitOfWork unitOfWork) : ILeaveService
+{
+    public async Task<LeaveResponseDto> GetLeaveAsync(int employeeId) =>
+        new(
+            (await leaves.GetBalancesAsync(employeeId)).Select(x => x.ToResponse()).ToList(),
+            (await leaves.GetRequestsAsync(employeeId)).Select(x => x.ToResponse()).ToList());
+
+    public async Task<LeaveRequestResponseDto?> CreateRequestAsync(CreateLeaveRequestDto request)
+    {
+        var employee = await employees.GetByIdAsync(request.EmployeeId);
+        if (employee is null)
+        {
+            return null;
+        }
+
+        var leave = new LeaveRequest
+        {
+            Id = await leaves.NextRequestIdAsync(),
+            EmployeeId = request.EmployeeId,
+            LeaveType = request.LeaveType,
+            FromDate = request.FromDate,
+            ToDate = request.ToDate,
+            TotalDays = Math.Max(1, request.ToDate.DayNumber - request.FromDate.DayNumber + 1),
+            Reason = request.Reason,
+            ContactDuringLeave = request.ContactDuringLeave,
+            AttachmentFileName = request.AttachmentFileName ?? "",
+            AttachmentDataUrl = request.AttachmentDataUrl ?? "",
+            Status = "Pending line manager"
+        };
+
+        await leaves.AddRequestAsync(leave);
+        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Leave", $"{request.LeaveType} - {employee.FullName}", employee.FullName, employee.Manager, 1));
+        await unitOfWork.SaveChangesAsync();
+
+        return leave.ToResponse();
+    }
+
+    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays) =>
+        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)) };
+}
+
+public class BenefitsService(IBenefitsRepository benefits) : IBenefitsService
+{
+    public async Task<List<BenefitPlanResponseDto>> GetBenefitsAsync() =>
+        (await benefits.GetAllAsync()).Select(x => x.ToResponse()).ToList();
+}
+
+public class ExpenseService(IExpenseRepository expenses, IEmployeeRepository employees, IApprovalRepository approvals, IUnitOfWork unitOfWork) : IExpenseService
+{
+    public async Task<List<ExpenseClaimResponseDto>> GetClaimsAsync(int employeeId) =>
+        (await expenses.GetByEmployeeAsync(employeeId)).Select(x => x.ToResponse()).ToList();
+
+    public async Task<ExpenseClaimResponseDto?> CreateClaimAsync(CreateExpenseClaimRequestDto request)
+    {
+        var employee = await employees.GetByIdAsync(request.EmployeeId);
+        if (employee is null)
+        {
+            return null;
+        }
+
+        var claim = new ExpenseClaim
+        {
+            Id = await expenses.NextIdAsync(),
+            EmployeeId = request.EmployeeId,
+            ClaimType = request.ClaimType,
+            Category = request.Category,
+            Amount = request.Amount,
+            ExpenseDate = request.ExpenseDate,
+            Description = request.Description,
+            ReceiptFileName = request.ReceiptFileName ?? "",
+            ReceiptDataUrl = request.ReceiptDataUrl ?? "",
+            Status = "Pending line manager",
+            LineManager = employee.Manager
+        };
+
+        await expenses.AddAsync(claim);
+        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Expense", $"{request.ClaimType} - {employee.FullName}", employee.FullName, employee.Manager, 3));
+        await unitOfWork.SaveChangesAsync();
+        return claim.ToResponse();
+    }
+
+    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays) =>
+        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)) };
+}
+
+public class ResignationService(IResignationRepository resignations, IEmployeeRepository employees, IApprovalRepository approvals, IUnitOfWork unitOfWork) : IResignationService
+{
+    public async Task<List<ResignationResponseDto>> GetResignationsAsync(int employeeId) =>
+        (await resignations.GetByEmployeeAsync(employeeId)).Select(x => x.ToResponse()).ToList();
+
+    public async Task<ResignationResponseDto?> CreateResignationAsync(CreateResignationRequestDto request)
+    {
+        var employee = await employees.GetByIdAsync(request.EmployeeId);
+        if (employee is null)
+        {
+            return null;
+        }
+
+        var resignation = new ResignationRequest
+        {
+            Id = await resignations.NextIdAsync(),
+            EmployeeId = request.EmployeeId,
+            ResignationDate = DateOnly.FromDateTime(DateTime.Today),
+            LastWorkingDate = request.LastWorkingDate,
+            Reason = request.Reason,
+            Status = "Pending line manager",
+            LineManager = employee.Manager
+        };
+
+        await resignations.AddAsync(resignation);
+        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Resignation", $"Resignation request - {employee.FullName}", employee.FullName, employee.Manager, 2));
+        await unitOfWork.SaveChangesAsync();
+        return resignation.ToResponse();
+    }
+
+    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays) =>
+        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)) };
+}
+
+public class PolicyService(IPolicyRepository policies) : IPolicyService
+{
+    public async Task<List<PolicyDocumentResponseDto>> GetPoliciesAsync() =>
+        (await policies.GetAllAsync()).Select(x => x.ToResponse()).ToList();
+}
+
+public class ApprovalService(IApprovalRepository approvals) : IApprovalService
+{
+    public async Task<List<ApprovalTaskResponseDto>> GetApprovalsAsync() =>
+        (await approvals.GetAllAsync()).Select(x => x.ToResponse()).ToList();
+}

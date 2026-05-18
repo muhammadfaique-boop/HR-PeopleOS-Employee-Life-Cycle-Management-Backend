@@ -1,4 +1,4 @@
-namespace PeopleOS.Api.Models;
+namespace PeopleOS.Api.Domain.Entities;
 
 public class AppUser
 {
