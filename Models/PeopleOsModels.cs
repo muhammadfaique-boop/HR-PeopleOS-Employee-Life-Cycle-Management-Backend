@@ -149,3 +149,44 @@ public class ResignationRequest
     public string Status { get; set; } = "";
     public string LineManager { get; set; } = "";
 }
+
+public class Holiday
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public DateOnly Date { get; set; }
+    public string Type { get; set; } = "";
+}
+
+public class Announcement
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = "";
+    public string Body { get; set; } = "";
+    public DateOnly PublishedOn { get; set; }
+    public string Audience { get; set; } = "";
+}
+
+public class QuickAction
+{
+    public int Id { get; set; }
+    public string Label { get; set; } = "";
+    public string Target { get; set; } = "";
+    public int DisplayOrder { get; set; }
+}
+
+public class LifecycleSignal
+{
+    public int Id { get; set; }
+    public string Label { get; set; } = "";
+    public string Value { get; set; } = "";
+    public string Status { get; set; } = "";
+    public int DisplayOrder { get; set; }
+}
+
+public class ActivityFeedItem
+{
+    public int Id { get; set; }
+    public string Message { get; set; } = "";
+    public DateOnly ActivityDate { get; set; }
+}

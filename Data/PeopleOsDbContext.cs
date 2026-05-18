@@ -18,6 +18,11 @@ public class PeopleOsDbContext(DbContextOptions<PeopleOsDbContext> options) : Db
     public DbSet<ApprovalTask> ApprovalTasks => Set<ApprovalTask>();
     public DbSet<ExpenseClaim> ExpenseClaims => Set<ExpenseClaim>();
     public DbSet<ResignationRequest> ResignationRequests => Set<ResignationRequest>();
+    public DbSet<Holiday> Holidays => Set<Holiday>();
+    public DbSet<Announcement> Announcements => Set<Announcement>();
+    public DbSet<QuickAction> QuickActions => Set<QuickAction>();
+    public DbSet<LifecycleSignal> LifecycleSignals => Set<LifecycleSignal>();
+    public DbSet<ActivityFeedItem> ActivityFeedItems => Set<ActivityFeedItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

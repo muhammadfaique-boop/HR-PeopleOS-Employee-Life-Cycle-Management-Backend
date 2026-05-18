@@ -6,11 +6,17 @@ public static class PeopleOsSeed
 {
     public static void Seed(PeopleOsDbContext db)
     {
-        if (db.Users.Any())
+        if (!db.Users.Any())
         {
-            return;
+            SeedCoreData(db);
         }
 
+        SeedReferenceData(db);
+        db.SaveChanges();
+    }
+
+    private static void SeedCoreData(PeopleOsDbContext db)
+    {
         db.Employees.AddRange(
             new Employee
             {
@@ -150,7 +156,51 @@ public static class PeopleOsSeed
         db.ResignationRequests.AddRange(
             new ResignationRequest { Id = 1, EmployeeId = 3, ResignationDate = new DateOnly(2026, 5, 1), LastWorkingDate = new DateOnly(2026, 5, 31), Reason = "Demo resignation workflow", Status = "Pending line manager", LineManager = "Muhammad Faique" });
 
-        db.SaveChanges();
+    }
+
+    private static void SeedReferenceData(PeopleOsDbContext db)
+    {
+        if (!db.Holidays.Any())
+        {
+            db.Holidays.AddRange(
+                new Holiday { Id = 1, Name = "Eid Holiday", Date = new DateOnly(2026, 5, 27), Type = "Public Holiday" },
+                new Holiday { Id = 2, Name = "Company Wellness Day", Date = new DateOnly(2026, 6, 7), Type = "Company Holiday" },
+                new Holiday { Id = 3, Name = "Independence Day", Date = new DateOnly(2026, 8, 14), Type = "Public Holiday" });
+        }
+
+        if (!db.Announcements.Any())
+        {
+            db.Announcements.AddRange(
+                new Announcement { Id = 1, Title = "Policy refresh", Body = "Attendance and leave policy updates are available in Policies.", PublishedOn = new DateOnly(2026, 5, 18), Audience = "All employees" },
+                new Announcement { Id = 2, Title = "Probation cycle", Body = "Managers should complete open probation reviews before due dates.", PublishedOn = new DateOnly(2026, 5, 16), Audience = "Managers" },
+                new Announcement { Id = 3, Title = "Document cleanup", Body = "Please upload missing employment records from the Profile section.", PublishedOn = new DateOnly(2026, 5, 14), Audience = "Employees" });
+        }
+
+        if (!db.QuickActions.Any())
+        {
+            db.QuickActions.AddRange(
+                new QuickAction { Id = 1, Label = "Apply Leave", Target = "leave", DisplayOrder = 1 },
+                new QuickAction { Id = 2, Label = "Correct Attendance", Target = "attendance", DisplayOrder = 2 },
+                new QuickAction { Id = 3, Label = "Submit Expense", Target = "expense", DisplayOrder = 3 },
+                new QuickAction { Id = 4, Label = "Open Policies", Target = "policies", DisplayOrder = 4 });
+        }
+
+        if (!db.LifecycleSignals.Any())
+        {
+            db.LifecycleSignals.AddRange(
+                new LifecycleSignal { Id = 1, Label = "Open onboarding tasks", Value = "2", Status = "In progress", DisplayOrder = 1 },
+                new LifecycleSignal { Id = 2, Label = "Documents pending", Value = "1", Status = "Needs attention", DisplayOrder = 2 },
+                new LifecycleSignal { Id = 3, Label = "Probation reviews due", Value = "1", Status = "Pending", DisplayOrder = 3 });
+        }
+
+        if (!db.ActivityFeedItems.Any())
+        {
+            db.ActivityFeedItems.AddRange(
+                new ActivityFeedItem { Id = 1, Message = "Leave request moved to manager approval", ActivityDate = new DateOnly(2026, 5, 18) },
+                new ActivityFeedItem { Id = 2, Message = "Probation review opened for Bilal Raza", ActivityDate = new DateOnly(2026, 5, 17) },
+                new ActivityFeedItem { Id = 3, Message = "Employment letter document marked ready", ActivityDate = new DateOnly(2026, 5, 16) },
+                new ActivityFeedItem { Id = 4, Message = "Attendance sync completed for today", ActivityDate = new DateOnly(2026, 5, 18) });
+        }
     }
 
     private static LifecycleStage Stage(int id, int employeeId, string stage, string owner, string status, int year, int month, int day, string summary) =>

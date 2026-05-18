@@ -88,6 +88,23 @@ public class PeopleOsApiTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task Dashboard_ReturnsDatabaseBackedHrHubData()
+    {
+        var json = await _client.GetFromJsonAsync<JsonObject>("/api/peopleos/dashboard");
+
+        Assert.Contains(RequiredArray(json, "holidays"), item =>
+            item?["name"]?.GetValue<string>() == "Eid Holiday");
+        Assert.Contains(RequiredArray(json, "announcements"), item =>
+            item?["title"]?.GetValue<string>() == "Policy refresh");
+        Assert.Contains(RequiredArray(json, "quickActions"), item =>
+            item?["target"]?.GetValue<string>() == "leave");
+        Assert.Contains(RequiredArray(json, "lifecycleSignals"), item =>
+            item?["label"]?.GetValue<string>() == "Documents pending");
+        Assert.Contains(RequiredArray(json, "recentActivity"), item =>
+            item?.GetValue<string>() == "Attendance sync completed for today");
+    }
+
+    [Fact]
     public async Task Attendance_ReturnsRecordsAndCorrectionQueue()
     {
         var json = await _client.GetFromJsonAsync<JsonObject>("/api/peopleos/attendance?employeeId=2");
