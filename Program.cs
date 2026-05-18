@@ -6,7 +6,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<PeopleOsDbContext>(options =>
-    options.UseInMemoryDatabase("PeopleOS"));
+{
+    if (builder.Environment.IsEnvironment("Testing"))
+    {
+        options.UseInMemoryDatabase("PeopleOS-Testing");
+    }
+    else
+    {
+        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    }
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("PeopleOSFrontend", policy =>
@@ -28,7 +37,14 @@ if (app.Environment.IsDevelopment())
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PeopleOsDbContext>();
-    db.Database.EnsureCreated();
+    if (app.Environment.IsEnvironment("Testing"))
+    {
+        db.Database.EnsureCreated();
+    }
+    else
+    {
+        db.Database.Migrate();
+    }
     PeopleOsSeed.Seed(db);
 }
 

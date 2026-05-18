@@ -18,10 +18,13 @@ public class Employee
     public string Department { get; set; } = "";
     public string Position { get; set; } = "";
     public string Manager { get; set; } = "";
+    public int? ManagerEmployeeId { get; set; }
     public string LifecycleStatus { get; set; } = "";
     public DateOnly JoiningDate { get; set; }
     public int ProfileCompletion { get; set; }
     public string WorkLocation { get; set; } = "";
+    public string PreferredLanguage { get; set; } = "English";
+    public string ProfileImageUrl { get; set; } = "";
 }
 
 public class LifecycleStage
@@ -86,6 +89,7 @@ public class BenefitPlan
     public string Category { get; set; } = "";
     public string Coverage { get; set; } = "";
     public string Status { get; set; } = "";
+    public string Description { get; set; } = "";
 }
 
 public class EmployeeDocument
@@ -116,4 +120,28 @@ public class ApprovalTask
     public string ApproverRole { get; set; } = "";
     public string Status { get; set; } = "";
     public DateOnly DueDate { get; set; }
+}
+
+public class ExpenseClaim
+{
+    public int Id { get; set; }
+    public int EmployeeId { get; set; }
+    public string ClaimType { get; set; } = "";
+    public string Category { get; set; } = "";
+    public decimal Amount { get; set; }
+    public DateOnly ExpenseDate { get; set; }
+    public string Description { get; set; } = "";
+    public string Status { get; set; } = "";
+    public string LineManager { get; set; } = "";
+}
+
+public class ResignationRequest
+{
+    public int Id { get; set; }
+    public int EmployeeId { get; set; }
+    public DateOnly ResignationDate { get; set; }
+    public DateOnly LastWorkingDate { get; set; }
+    public string Reason { get; set; } = "";
+    public string Status { get; set; } = "";
+    public string LineManager { get; set; } = "";
 }

@@ -21,6 +21,7 @@ public static class PeopleOsSeed
                 Department = "People Operations",
                 Position = "HR Operations Lead",
                 Manager = "Sara Ahmed",
+                ManagerEmployeeId = null,
                 LifecycleStatus = "Active",
                 JoiningDate = new DateOnly(2023, 3, 6),
                 ProfileCompletion = 96,
@@ -35,10 +36,12 @@ public static class PeopleOsSeed
                 Department = "Engineering",
                 Position = "Senior Software Engineer",
                 Manager = "Ayesha Khan",
+                ManagerEmployeeId = 1,
                 LifecycleStatus = "Active",
                 JoiningDate = new DateOnly(2026, 1, 16),
                 ProfileCompletion = 88,
-                WorkLocation = "Lahore"
+                WorkLocation = "Lahore",
+                ProfileImageUrl = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=240&q=80"
             },
             new Employee
             {
@@ -49,6 +52,7 @@ public static class PeopleOsSeed
                 Department = "Engineering",
                 Position = "Frontend Engineer",
                 Manager = "Muhammad Faique",
+                ManagerEmployeeId = 2,
                 LifecycleStatus = "Probation",
                 JoiningDate = new DateOnly(2026, 4, 1),
                 ProfileCompletion = 72,
@@ -119,9 +123,10 @@ public static class PeopleOsSeed
             });
 
         db.BenefitPlans.AddRange(
-            new BenefitPlan { Id = 1, Name = "Health Insurance", Category = "Medical", Coverage = "Employee, spouse and children", Status = "Active" },
-            new BenefitPlan { Id = 2, Name = "Vehicle Benefit", Category = "Mobility", Coverage = "Role-based allowance categories", Status = "Policy managed" },
-            new BenefitPlan { Id = 3, Name = "Expense Categories", Category = "Reimbursement", Coverage = "Business and OPD categories", Status = "Active" });
+            new BenefitPlan { Id = 1, Name = "Health Insurance", Category = "Benefit", Coverage = "Employee, spouse and children", Status = "Active", Description = "Hospitalization, emergency and dependent coverage." },
+            new BenefitPlan { Id = 2, Name = "Vehicle Benefit", Category = "Mobility", Coverage = "Role-based allowance categories", Status = "Policy managed", Description = "Mobility entitlement by role, location and approval policy." },
+            new BenefitPlan { Id = 3, Name = "Medical OPD", Category = "Expense Category", Coverage = "OPD reimbursement", Status = "Active", Description = "Medical expense claim category for outpatient reimbursements." },
+            new BenefitPlan { Id = 4, Name = "Business Expense", Category = "Expense Category", Coverage = "Approved business purchases", Status = "Active", Description = "Business expense claim category with line manager approval." });
 
         db.Documents.AddRange(
             Doc(1, 2, "CNIC copy", "Identity", "Verified", 2026, 1, 16),
@@ -135,9 +140,15 @@ public static class PeopleOsSeed
             new PolicyDocument { Id = 3, Title = "Promotion Cycle Guide", Category = "Career Growth", Version = "v1.0", PublishedOn = new DateOnly(2026, 4, 10) });
 
         db.ApprovalTasks.AddRange(
-            new ApprovalTask { Id = 1, Type = "Leave", Subject = "Casual Leave - Muhammad Faique", Requester = "Muhammad Faique", ApproverRole = "Manager", Status = "Pending", DueDate = new DateOnly(2026, 5, 19) },
-            new ApprovalTask { Id = 2, Type = "Probation", Subject = "Probation review - Bilal Raza", Requester = "People Operations", ApproverRole = "Manager", Status = "Pending", DueDate = new DateOnly(2026, 6, 28) },
+            new ApprovalTask { Id = 1, Type = "Leave", Subject = "Casual Leave - Muhammad Faique", Requester = "Muhammad Faique", ApproverRole = "Line Manager", Status = "Pending", DueDate = new DateOnly(2026, 5, 19) },
+            new ApprovalTask { Id = 2, Type = "Probation", Subject = "Probation review - Bilal Raza", Requester = "People Operations", ApproverRole = "Line Manager", Status = "Pending", DueDate = new DateOnly(2026, 6, 28) },
             new ApprovalTask { Id = 3, Type = "Document", Subject = "Employment letter verification", Requester = "Muhammad Faique", ApproverRole = "HR", Status = "In review", DueDate = new DateOnly(2026, 5, 22) });
+
+        db.ExpenseClaims.AddRange(
+            new ExpenseClaim { Id = 1, EmployeeId = 2, ClaimType = "Medical Expense OPD", Category = "Medical OPD", Amount = 6500, ExpenseDate = new DateOnly(2026, 5, 10), Description = "Clinic consultation and medicine", Status = "Pending line manager", LineManager = "Ayesha Khan" });
+
+        db.ResignationRequests.AddRange(
+            new ResignationRequest { Id = 1, EmployeeId = 3, ResignationDate = new DateOnly(2026, 5, 1), LastWorkingDate = new DateOnly(2026, 5, 31), Reason = "Demo resignation workflow", Status = "Pending line manager", LineManager = "Muhammad Faique" });
 
         db.SaveChanges();
     }

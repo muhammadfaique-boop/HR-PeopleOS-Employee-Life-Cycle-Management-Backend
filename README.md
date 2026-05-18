@@ -11,9 +11,12 @@ Included:
 - Hire-to-retire lifecycle tracker
 - Attendance records and correction queue
 - Leave balances and leave requests
-- Benefits administration
+- Benefits, mobility, and expense categories
+- Expense claims including Medical OPD
+- Resignation requests and offboarding queue
+- Profile language and photo update support
 - Policies and downloads
-- Approval queue
+- Line-manager approval queue
 
 Excluded by product decision:
 
@@ -26,8 +29,15 @@ Excluded by product decision:
 
 ```powershell
 dotnet restore
+dotnet ef database update
 dotnet run --urls http://localhost:5265
 ```
+
+The API uses SQL Server LocalDB by default:
+
+`Server=(localdb)\MSSQLLocalDB;Database=PeopleOS_HR;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True`
+
+On startup it applies pending migrations and inserts demo data when the database is empty.
 
 ## QA
 
@@ -40,5 +50,3 @@ dotnet test PeopleOS.Backend.sln
 - `admin@peopleos.dev` / `Admin@123`
 - `hr@peopleos.dev` / `Hr@123`
 - `employee@peopleos.dev` / `Employee@123`
-
-The current build uses Entity Framework Core with an in-memory database and seeded dummy data. It is intentionally fast for product iteration and can be moved to SQL Server when the domain model settles.

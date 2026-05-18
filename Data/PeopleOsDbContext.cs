@@ -16,4 +16,23 @@ public class PeopleOsDbContext(DbContextOptions<PeopleOsDbContext> options) : Db
     public DbSet<EmployeeDocument> Documents => Set<EmployeeDocument>();
     public DbSet<PolicyDocument> Policies => Set<PolicyDocument>();
     public DbSet<ApprovalTask> ApprovalTasks => Set<ApprovalTask>();
+    public DbSet<ExpenseClaim> ExpenseClaims => Set<ExpenseClaim>();
+    public DbSet<ResignationRequest> ResignationRequests => Set<ResignationRequest>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var idProperty = entityType.FindProperty("Id");
+            if (idProperty?.ClrType == typeof(int))
+            {
+                idProperty.ValueGenerated = Microsoft.EntityFrameworkCore.Metadata.ValueGenerated.Never;
+            }
+        }
+
+        modelBuilder.Entity<LeaveBalance>().Property(x => x.AnnualEntitlement).HasPrecision(8, 2);
+        modelBuilder.Entity<LeaveBalance>().Property(x => x.AvailableBalance).HasPrecision(8, 2);
+        modelBuilder.Entity<LeaveRequest>().Property(x => x.TotalDays).HasPrecision(8, 2);
+        modelBuilder.Entity<ExpenseClaim>().Property(x => x.Amount).HasPrecision(18, 2);
+    }
 }
