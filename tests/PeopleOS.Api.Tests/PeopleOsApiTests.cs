@@ -97,6 +97,19 @@ public class PeopleOsApiTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task AttendanceDownloadPdf_ReturnsValidPdfWithEmployeeFileName()
+    {
+        var response = await _client.GetAsync("/api/peopleos/attendance/download/pdf?employeeId=2");
+
+        response.EnsureSuccessStatusCode();
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        var header = System.Text.Encoding.ASCII.GetString(bytes.Take(8).ToArray());
+
+        Assert.StartsWith("%PDF", header);
+        Assert.Contains("Login_UserId_2.Attendance log.pdf", response.Content.Headers.ContentDisposition?.FileName);
+    }
+
+    [Fact]
     public async Task Leave_ReturnsBalancesAndRequestHistory()
     {
         var json = await _client.GetFromJsonAsync<JsonObject>("/api/peopleos/leave?employeeId=2");

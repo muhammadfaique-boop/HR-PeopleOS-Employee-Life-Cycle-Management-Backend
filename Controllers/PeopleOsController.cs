@@ -117,11 +117,14 @@ public class PeopleOsController(PeopleOsDbContext db) : ControllerBase
 
         if (format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
         {
-            var pdfLike = Encoding.UTF8.GetBytes($"PeopleOS Attendance Log\r\n\r\n{content}");
-            return File(pdfLike, "application/pdf", "attendance-log.pdf");
+            var employee = await db.Employees.FindAsync(employeeId);
+            var title = $"PeopleOS Attendance Log - {employee?.FullName ?? "Employee"}";
+            var body = title + "\n\n" + content.Replace(",", "    ");
+            var pdf = BuildSimplePdf(body);
+            return File(pdf, "application/pdf", $"Login_UserId_{employeeId}.Attendance log.pdf");
         }
 
-        return File(Encoding.UTF8.GetBytes(content), "text/csv", "attendance-log.csv");
+        return File(Encoding.UTF8.GetBytes(content), "text/csv", $"Login_UserId_{employeeId}.Attendance log.csv");
     }
 
     [HttpGet("leave")]
@@ -154,6 +157,8 @@ public class PeopleOsController(PeopleOsDbContext db) : ControllerBase
             TotalDays = totalDays,
             Reason = request.Reason,
             ContactDuringLeave = request.ContactDuringLeave,
+            AttachmentFileName = request.AttachmentFileName ?? "",
+            AttachmentDataUrl = request.AttachmentDataUrl ?? "",
             Status = "Pending line manager"
         };
 
@@ -199,6 +204,8 @@ public class PeopleOsController(PeopleOsDbContext db) : ControllerBase
             Amount = request.Amount,
             ExpenseDate = request.ExpenseDate,
             Description = request.Description,
+            ReceiptFileName = request.ReceiptFileName ?? "",
+            ReceiptDataUrl = request.ReceiptDataUrl ?? "",
             Status = "Pending line manager",
             LineManager = employee.Manager
         };
@@ -286,10 +293,52 @@ public class PeopleOsController(PeopleOsDbContext db) : ControllerBase
     private async Task<int> NextApprovalId() => NextId(await db.ApprovalTasks.Select(x => x.Id).ToListAsync());
 
     private static int NextId(List<int> ids) => ids.Count == 0 ? 1 : ids.Max() + 1;
+
+    private static byte[] BuildSimplePdf(string text)
+    {
+        static string EscapePdf(string value) => value.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)");
+
+        var lines = text.Replace("\r", "").Split('\n').Take(34).ToList();
+        var contentBuilder = new StringBuilder("BT\n/F1 11 Tf\n50 780 Td\n14 TL\n");
+        foreach (var line in lines)
+        {
+            contentBuilder.Append('(').Append(EscapePdf(line.Length > 95 ? line[..95] : line)).Append(") Tj\nT*\n");
+        }
+        contentBuilder.Append("ET");
+
+        var stream = contentBuilder.ToString();
+        var objects = new[]
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            $"<< /Length {Encoding.ASCII.GetByteCount(stream)} >>\nstream\n{stream}\nendstream"
+        };
+
+        var pdf = new StringBuilder("%PDF-1.4\n");
+        var offsets = new List<int> { 0 };
+        foreach (var item in objects.Select((value, index) => new { value, index }))
+        {
+            offsets.Add(Encoding.ASCII.GetByteCount(pdf.ToString()));
+            pdf.Append(item.index + 1).Append(" 0 obj\n").Append(item.value).Append("\nendobj\n");
+        }
+
+        var xrefOffset = Encoding.ASCII.GetByteCount(pdf.ToString());
+        pdf.Append("xref\n0 ").Append(objects.Length + 1).Append("\n0000000000 65535 f \n");
+        foreach (var offset in offsets.Skip(1))
+        {
+            pdf.Append(offset.ToString("D10")).Append(" 00000 n \n");
+        }
+        pdf.Append("trailer\n<< /Size ").Append(objects.Length + 1).Append(" /Root 1 0 R >>\nstartxref\n")
+            .Append(xrefOffset).Append("\n%%EOF");
+
+        return Encoding.ASCII.GetBytes(pdf.ToString());
+    }
 }
 
 public record AttendanceCorrectionRequest(int EmployeeId, DateOnly WorkDate, string RequestedChange, string Reason);
-public record LeaveRequestDto(int EmployeeId, string LeaveType, DateOnly FromDate, DateOnly ToDate, string Reason, string ContactDuringLeave);
-public record ExpenseClaimDto(int EmployeeId, string ClaimType, string Category, decimal Amount, DateOnly ExpenseDate, string Description);
+public record LeaveRequestDto(int EmployeeId, string LeaveType, DateOnly FromDate, DateOnly ToDate, string Reason, string ContactDuringLeave, string? AttachmentFileName, string? AttachmentDataUrl);
+public record ExpenseClaimDto(int EmployeeId, string ClaimType, string Category, decimal Amount, DateOnly ExpenseDate, string Description, string? ReceiptFileName, string? ReceiptDataUrl);
 public record ResignationDto(int EmployeeId, DateOnly LastWorkingDate, string Reason);
 public record ProfileUpdateDto(string PreferredLanguage, string ProfileImageUrl);

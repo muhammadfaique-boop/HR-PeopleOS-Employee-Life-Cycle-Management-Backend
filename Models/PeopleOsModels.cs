@@ -79,6 +79,8 @@ public class LeaveRequest
     public decimal TotalDays { get; set; }
     public string Reason { get; set; } = "";
     public string ContactDuringLeave { get; set; } = "";
+    public string AttachmentFileName { get; set; } = "";
+    public string AttachmentDataUrl { get; set; } = "";
     public string Status { get; set; } = "";
 }
 
@@ -131,6 +133,8 @@ public class ExpenseClaim
     public decimal Amount { get; set; }
     public DateOnly ExpenseDate { get; set; }
     public string Description { get; set; } = "";
+    public string ReceiptFileName { get; set; } = "";
+    public string ReceiptDataUrl { get; set; } = "";
     public string Status { get; set; } = "";
     public string LineManager { get; set; } = "";
 }
