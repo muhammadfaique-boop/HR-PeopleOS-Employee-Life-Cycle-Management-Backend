@@ -45,6 +45,36 @@ public class PeopleOsApiTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task ChangePassword_WithCurrentPassword_UpdatesDemoPassword()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/change-password", new
+        {
+            email = "employee@peopleos.dev",
+            currentPassword = "Employee@123",
+            newPassword = "Employee@1234"
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var login = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email = "employee@peopleos.dev",
+            password = "Employee@1234"
+        });
+
+        login.EnsureSuccessStatusCode();
+
+        var reset = await _client.PostAsJsonAsync("/api/auth/change-password", new
+        {
+            email = "employee@peopleos.dev",
+            currentPassword = "Employee@1234",
+            newPassword = "Employee@123"
+        });
+
+        reset.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
     public async Task Dashboard_ReturnsLifecycleMetricsAndExcludedScopeData()
     {
         var json = await _client.GetFromJsonAsync<JsonObject>("/api/peopleos/dashboard");
