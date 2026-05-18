@@ -6,6 +6,8 @@ public interface IAuthRepository
 {
     Task<AppUser?> FindByCredentialsAsync(string email, string password);
     Task<AppUser?> FindByEmailAsync(string email);
+    Task<List<AppRolePermission>> GetRolePermissionsAsync(string roleName);
+    Task<AppRole?> GetRoleAsync(string roleName);
     Task SaveChangesAsync();
 }
 

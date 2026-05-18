@@ -11,6 +11,7 @@ public static class PeopleOsSeed
             SeedCoreData(db);
         }
 
+        SeedRolesAndPermissions(db);
         SeedReferenceData(db);
         db.SaveChanges();
     }
@@ -23,7 +24,7 @@ public static class PeopleOsSeed
             new Employee { Id = 3, EmployeeCode = "EMP-1077", FullName = "Bilal Raza", Email = "bilal.raza@peopleos.dev", Department = "Engineering", Position = "Frontend Engineer", Manager = "Muhammad Faique", ManagerEmployeeId = 2, LifecycleStatus = "Probation", JoiningDate = new DateOnly(2026, 4, 1), ProfileCompletion = 72, WorkLocation = "Karachi" });
 
         db.Users.AddRange(
-            new AppUser { Id = 1, Email = "admin@peopleos.dev", Password = "Admin@123", Role = "Admin", EmployeeId = 1 },
+            new AppUser { Id = 1, Email = "admin@peopleos.dev", Password = "Admin@123", Role = "Super Admin", EmployeeId = 1 },
             new AppUser { Id = 2, Email = "hr@peopleos.dev", Password = "Hr@123", Role = "HR", EmployeeId = 1 },
             new AppUser { Id = 3, Email = "employee@peopleos.dev", Password = "Employee@123", Role = "Employee", EmployeeId = 2 });
 
@@ -78,6 +79,59 @@ public static class PeopleOsSeed
         db.ExpenseClaims.Add(new ExpenseClaim { Id = 1, EmployeeId = 2, ClaimType = "Medical Expense OPD", Category = "Medical OPD", Amount = 6500, ExpenseDate = new DateOnly(2026, 5, 10), Description = "Clinic consultation and medicine", Status = "Pending line manager", LineManager = "Ayesha Khan" });
 
         db.ResignationRequests.Add(new ResignationRequest { Id = 1, EmployeeId = 3, ResignationDate = new DateOnly(2026, 5, 1), LastWorkingDate = new DateOnly(2026, 5, 31), Reason = "Demo resignation workflow", Status = "Pending line manager", LineManager = "Muhammad Faique" });
+    }
+
+    private static void SeedRolesAndPermissions(PeopleOsDbContext db)
+    {
+        foreach (var admin in db.Users.Where(x => x.Role == "Admin"))
+        {
+            admin.Role = "Super Admin";
+        }
+
+        if (!db.Roles.Any())
+        {
+            db.Roles.AddRange(
+                new AppRole { Id = 1, Name = "Super Admin", Description = "Owns system setup, roles, permissions, organization-wide settings, reporting and audit visibility.", DefaultScope = "organization" },
+                new AppRole { Id = 2, Name = "HR", Description = "Manages employees, attendance policies, leave policies, holidays, benefits, departments and approvals.", DefaultScope = "organization" },
+                new AppRole { Id = 3, Name = "Employee", Description = "Uses self-service attendance, leave, profile, expense, resignation and policy workflows.", DefaultScope = "own" });
+        }
+
+        if (!db.Permissions.Any())
+        {
+            db.Permissions.AddRange(
+                Permission(1, "attendance.read", "View attendance records."),
+                Permission(2, "attendance.create", "Create attendance punches or manual records."),
+                Permission(3, "attendance.correct", "Request or manage attendance corrections."),
+                Permission(4, "attendance.approve", "Approve attendance correction requests."),
+                Permission(5, "leave.read", "View leave balances and requests."),
+                Permission(6, "leave.create", "Create leave requests."),
+                Permission(7, "leave.approve", "Approve leave requests."),
+                Permission(8, "employee.read", "View employee profiles."),
+                Permission(9, "employee.create", "Create employees."),
+                Permission(10, "employee.update", "Update employee profiles."),
+                Permission(11, "benefit.read", "View benefit, mobility and expense category policies."),
+                Permission(12, "benefit.manage", "Manage benefit, mobility and expense category policies."),
+                Permission(13, "expense.read", "View expense claims."),
+                Permission(14, "expense.create", "Create expense claims."),
+                Permission(15, "expense.approve", "Approve expense claims."),
+                Permission(16, "resignation.read", "View resignation requests."),
+                Permission(17, "resignation.create", "Create resignation requests."),
+                Permission(18, "resignation.approve", "Approve resignation and offboarding requests."),
+                Permission(19, "policy.read", "View policies and documents."),
+                Permission(20, "policy.manage", "Manage policies and documents."),
+                Permission(21, "role.manage", "Manage system roles."),
+                Permission(22, "permission.manage", "Manage permission assignments."),
+                Permission(23, "audit.read", "View audit logs."),
+                Permission(24, "report.read", "View reports."));
+        }
+
+        if (!db.RolePermissions.Any())
+        {
+            var id = 1;
+            GrantRange(db, ref id, 1, "organization", Enumerable.Range(1, 24).ToArray());
+            GrantRange(db, ref id, 2, "organization", 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 15, 16, 18, 19, 20, 23, 24);
+            GrantRange(db, ref id, 3, "own", 1, 2, 3, 5, 6, 8, 10, 11, 13, 14, 16, 17, 19);
+        }
     }
 
     private static void SeedReferenceData(PeopleOsDbContext db)
@@ -136,4 +190,15 @@ public static class PeopleOsSeed
 
     private static EmployeeDocument Doc(int id, int employeeId, string name, string category, string status, int year, int month, int day) =>
         new() { Id = id, EmployeeId = employeeId, Name = name, Category = category, Status = status, UpdatedOn = new DateOnly(year, month, day) };
+
+    private static AppPermission Permission(int id, string key, string description) =>
+        new() { Id = id, Key = key, Description = description };
+
+    private static void GrantRange(PeopleOsDbContext db, ref int id, int roleId, string scope, params int[] permissionIds)
+    {
+        foreach (var permissionId in permissionIds)
+        {
+            db.RolePermissions.Add(new AppRolePermission { Id = id++, RoleId = roleId, PermissionId = permissionId, Scope = scope });
+        }
+    }
 }

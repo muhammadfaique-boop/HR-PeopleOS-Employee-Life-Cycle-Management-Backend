@@ -18,7 +18,17 @@ public class AuthService(IAuthRepository authRepository, IEmployeeRepository emp
         }
 
         var employee = await employeeRepository.GetByIdAsync(user.EmployeeId);
-        return new LoginResponseDto($"demo-token-{user.Id}", user.Email, user.Role, employee?.ToResponse());
+        var roleName = NormalizeRole(user.Role);
+        var role = await authRepository.GetRoleAsync(roleName);
+        var permissions = await authRepository.GetRolePermissionsAsync(roleName);
+
+        return new LoginResponseDto(
+            $"demo-token-{user.Id}",
+            user.Email,
+            roleName,
+            role?.DefaultScope ?? "own",
+            permissions.Select(x => new PermissionGrantResponseDto(PermissionKeys[x.PermissionId], x.Scope)).ToList(),
+            employee?.ToResponse());
     }
 
     public async Task<bool> ChangePasswordAsync(ChangePasswordRequestDto request)
@@ -33,6 +43,38 @@ public class AuthService(IAuthRepository authRepository, IEmployeeRepository emp
         await authRepository.SaveChangesAsync();
         return true;
     }
+
+    private static string NormalizeRole(string role) => role.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+        ? "Super Admin"
+        : role;
+
+    private static readonly IReadOnlyDictionary<int, string> PermissionKeys = new Dictionary<int, string>
+    {
+        [1] = "attendance.read",
+        [2] = "attendance.create",
+        [3] = "attendance.correct",
+        [4] = "attendance.approve",
+        [5] = "leave.read",
+        [6] = "leave.create",
+        [7] = "leave.approve",
+        [8] = "employee.read",
+        [9] = "employee.create",
+        [10] = "employee.update",
+        [11] = "benefit.read",
+        [12] = "benefit.manage",
+        [13] = "expense.read",
+        [14] = "expense.create",
+        [15] = "expense.approve",
+        [16] = "resignation.read",
+        [17] = "resignation.create",
+        [18] = "resignation.approve",
+        [19] = "policy.read",
+        [20] = "policy.manage",
+        [21] = "role.manage",
+        [22] = "permission.manage",
+        [23] = "audit.read",
+        [24] = "report.read"
+    };
 }
 
 public class DashboardService(

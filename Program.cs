@@ -8,6 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
@@ -50,14 +52,22 @@ builder.Services.AddCors(options =>
             .AllowCredentials()
             .SetIsOriginAllowed(origin =>
                 origin.StartsWith("http://localhost", StringComparison.OrdinalIgnoreCase) ||
-                origin.StartsWith("https://localhost", StringComparison.OrdinalIgnoreCase)));
+                origin.StartsWith("https://localhost", StringComparison.OrdinalIgnoreCase) ||
+                origin.StartsWith("http://127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+                origin.StartsWith("https://127.0.0.1", StringComparison.OrdinalIgnoreCase)));
 });
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
     app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "PeopleOS API v1");
+        options.RoutePrefix = "swagger";
+    });
 }
 
 using (var scope = app.Services.CreateScope())
@@ -75,7 +85,10 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors("PeopleOSFrontend");
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthorization();
 app.MapControllers();
 

@@ -28,6 +28,10 @@ public class PeopleOsApiTests : IClassFixture<WebApplicationFactory<Program>>
         var json = await response.Content.ReadFromJsonAsync<JsonObject>();
 
         Assert.Equal("Employee", json?["role"]?.GetValue<string>());
+        Assert.Equal("own", json?["scope"]?.GetValue<string>());
+        Assert.Contains(RequiredArray(json, "permissions"), item =>
+            item?["key"]?.GetValue<string>() == "leave.create" &&
+            item?["scope"]?.GetValue<string>() == "own");
         Assert.Equal("Muhammad Faique", json?["employee"]?["fullName"]?.GetValue<string>());
         Assert.StartsWith("demo-token-", json?["token"]?.GetValue<string>());
     }

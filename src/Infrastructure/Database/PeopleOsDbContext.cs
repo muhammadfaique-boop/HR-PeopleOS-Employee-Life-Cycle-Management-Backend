@@ -6,6 +6,9 @@ namespace PeopleOS.Api.Infrastructure.Database;
 public class PeopleOsDbContext(DbContextOptions<PeopleOsDbContext> options) : DbContext(options)
 {
     public DbSet<AppUser> Users => Set<AppUser>();
+    public DbSet<AppRole> Roles => Set<AppRole>();
+    public DbSet<AppPermission> Permissions => Set<AppPermission>();
+    public DbSet<AppRolePermission> RolePermissions => Set<AppRolePermission>();
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<LifecycleStage> LifecycleStages => Set<LifecycleStage>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
@@ -39,5 +42,8 @@ public class PeopleOsDbContext(DbContextOptions<PeopleOsDbContext> options) : Db
         modelBuilder.Entity<LeaveBalance>().Property(x => x.AvailableBalance).HasPrecision(8, 2);
         modelBuilder.Entity<LeaveRequest>().Property(x => x.TotalDays).HasPrecision(8, 2);
         modelBuilder.Entity<ExpenseClaim>().Property(x => x.Amount).HasPrecision(18, 2);
+
+        modelBuilder.Entity<AppRole>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<AppPermission>().HasIndex(x => x.Key).IsUnique();
     }
 }

@@ -18,6 +18,16 @@ public class AuthRepository(PeopleOsDbContext db) : IAuthRepository
     public Task<AppUser?> FindByEmailAsync(string email) =>
         db.Users.FirstOrDefaultAsync(x => x.Email.ToLower() == email.ToLower());
 
+    public Task<AppRole?> GetRoleAsync(string roleName) =>
+        db.Roles.FirstOrDefaultAsync(x => x.Name == roleName);
+
+    public Task<List<AppRolePermission>> GetRolePermissionsAsync(string roleName) =>
+        db.RolePermissions
+            .Join(db.Roles, grant => grant.RoleId, role => role.Id, (grant, role) => new { grant, role })
+            .Where(x => x.role.Name == roleName)
+            .Select(x => x.grant)
+            .ToListAsync();
+
     public Task SaveChangesAsync() => db.SaveChangesAsync();
 }
 
