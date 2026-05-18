@@ -16,6 +16,10 @@ public class PeopleOsController(PeopleOsDbContext db) : ControllerBase
         var employees = await db.Employees.OrderBy(x => x.FullName).ToListAsync();
         var activeEmployee = employees.First(x => x.Email == "muhammad.faique@peopleos.dev");
         var pendingTasks = await db.ApprovalTasks.Where(x => x.Status != "Approved").ToListAsync();
+        var approvedLeaves = await db.LeaveRequests
+            .Where(x => x.Status == "Approved" && x.ToDate >= DateOnly.FromDateTime(DateTime.Today))
+            .OrderBy(x => x.FromDate)
+            .ToListAsync();
 
         return Ok(new
         {
@@ -30,6 +34,43 @@ public class PeopleOsController(PeopleOsDbContext db) : ControllerBase
             employees,
             lifecycle = await db.LifecycleStages.OrderBy(x => x.DueDate).ToListAsync(),
             approvals = pendingTasks.OrderBy(x => x.DueDate),
+            whoIsOut = approvedLeaves.Select(leave =>
+            {
+                var employee = employees.FirstOrDefault(x => x.Id == leave.EmployeeId);
+                return new
+                {
+                    employeeName = employee?.FullName ?? "Employee",
+                    leaveType = leave.LeaveType,
+                    fromDate = leave.FromDate,
+                    toDate = leave.ToDate,
+                    department = employee?.Department ?? "Unassigned"
+                };
+            }),
+            holidays = new[]
+            {
+                new { name = "Eid Holiday", date = new DateOnly(2026, 5, 27), type = "Public Holiday" },
+                new { name = "Company Wellness Day", date = new DateOnly(2026, 6, 7), type = "Company Holiday" },
+                new { name = "Independence Day", date = new DateOnly(2026, 8, 14), type = "Public Holiday" }
+            },
+            announcements = new[]
+            {
+                new { title = "Policy refresh", body = "Attendance and leave policy updates are available in Policies.", publishedOn = new DateOnly(2026, 5, 18), audience = "All employees" },
+                new { title = "Probation cycle", body = "Managers should complete open probation reviews before due dates.", publishedOn = new DateOnly(2026, 5, 16), audience = "Managers" },
+                new { title = "Document cleanup", body = "Please upload missing employment records from the Profile section.", publishedOn = new DateOnly(2026, 5, 14), audience = "Employees" }
+            },
+            quickActions = new[]
+            {
+                new { label = "Apply Leave", target = "leave" },
+                new { label = "Correct Attendance", target = "attendance" },
+                new { label = "Submit Expense", target = "expense" },
+                new { label = "Open Policies", target = "policies" }
+            },
+            lifecycleSignals = new[]
+            {
+                new { label = "Open onboarding tasks", value = "2", status = "In progress" },
+                new { label = "Documents pending", value = "1", status = "Needs attention" },
+                new { label = "Probation reviews due", value = "1", status = "Pending" }
+            },
             recentActivity = new[]
             {
                 "Leave request moved to manager approval",
