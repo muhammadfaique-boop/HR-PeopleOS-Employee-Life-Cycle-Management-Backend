@@ -7,7 +7,6 @@ using PeopleOS.Api.Infrastructure.Repositories;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
@@ -61,7 +60,6 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
-    app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
