@@ -72,7 +72,7 @@ public static class PeopleOsSeed
             new PolicyDocument { Id = 3, Title = "Promotion Cycle Guide", Category = "Career Growth", Version = "v1.0", PublishedOn = new DateOnly(2026, 4, 10) });
 
         db.ApprovalTasks.AddRange(
-            new ApprovalTask { Id = 1, Type = "Leave", Subject = "Casual Leave - Muhammad Faique", Requester = "Muhammad Faique", ApproverRole = "Line Manager", Status = "Pending", DueDate = new DateOnly(2026, 5, 19) },
+            new ApprovalTask { Id = 1, Type = "Leave", Subject = "Casual Leave - Muhammad Faique", Requester = "Muhammad Faique", ApproverRole = "Line Manager", Status = "Pending", DueDate = new DateOnly(2026, 5, 19), ReferenceType = "LeaveRequest", ReferenceId = 1 },
             new ApprovalTask { Id = 2, Type = "Probation", Subject = "Probation review - Bilal Raza", Requester = "People Operations", ApproverRole = "Line Manager", Status = "Pending", DueDate = new DateOnly(2026, 6, 28) },
             new ApprovalTask { Id = 3, Type = "Document", Subject = "Employment letter verification", Requester = "Muhammad Faique", ApproverRole = "HR", Status = "In review", DueDate = new DateOnly(2026, 5, 22) });
 

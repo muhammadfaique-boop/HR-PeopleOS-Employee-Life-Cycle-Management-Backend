@@ -79,6 +79,34 @@ public class PeopleOsApiTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task ResetPassword_WithKnownEmail_AllowsLoginWithNewPassword()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/reset-password", new
+        {
+            email = "employee@peopleos.dev",
+            newPassword = "Employee@Reset123"
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var login = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email = "employee@peopleos.dev",
+            password = "Employee@Reset123"
+        });
+
+        login.EnsureSuccessStatusCode();
+
+        var restore = await _client.PostAsJsonAsync("/api/auth/reset-password", new
+        {
+            email = "employee@peopleos.dev",
+            newPassword = "Employee@123"
+        });
+
+        restore.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
     public async Task Dashboard_ReturnsLifecycleMetricsAndExcludedScopeData()
     {
         var json = await _client.GetFromJsonAsync<JsonObject>("/api/peopleos/dashboard");
@@ -139,6 +167,138 @@ public class PeopleOsApiTests : IClassFixture<WebApplicationFactory<Program>>
             item?["leaveType"]?.GetValue<string>() == "Annual Leave");
         Assert.Contains(RequiredArray(json, "requests"), item =>
             item?["status"]?.GetValue<string>() == "Approval Required");
+    }
+
+    [Fact]
+    public async Task CreateLeaveRequest_DeductsMatchingLeaveBalance()
+    {
+        var before = await _client.GetFromJsonAsync<JsonObject>("/api/peopleos/leave?employeeId=2");
+        var beforeBalance = RequiredArray(before, "balances")
+            .Single(item => item?["leaveType"]?.GetValue<string>() == "Casual Leave")?["availableBalance"]?.GetValue<decimal>();
+
+        var response = await _client.PostAsJsonAsync("/api/peopleos/leave/requests", new
+        {
+            employeeId = 2,
+            leaveType = "Casual Leave",
+            fromDate = "2026-06-02",
+            toDate = "2026-06-03",
+            reason = "Family commitment",
+            contactDuringLeave = "Available on mobile"
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var after = await _client.GetFromJsonAsync<JsonObject>("/api/peopleos/leave?employeeId=2");
+        var afterBalance = RequiredArray(after, "balances")
+            .Single(item => item?["leaveType"]?.GetValue<string>() == "Casual Leave")?["availableBalance"]?.GetValue<decimal>();
+
+        Assert.Equal(beforeBalance - 2, afterBalance);
+    }
+
+    [Fact]
+    public async Task DecideApproval_UpdatesApprovalAndReferencedLeaveRequest()
+    {
+        var create = await _client.PostAsJsonAsync("/api/peopleos/leave/requests", new
+        {
+            employeeId = 2,
+            leaveType = "Sick Leave",
+            fromDate = "2026-07-01",
+            toDate = "2026-07-01",
+            reason = "Medical appointment",
+            contactDuringLeave = "Available on mobile"
+        });
+        create.EnsureSuccessStatusCode();
+
+        var createdLeave = await create.Content.ReadFromJsonAsync<JsonObject>();
+        var requestId = createdLeave?["id"]?.GetValue<int>();
+        var approvals = await _client.GetFromJsonAsync<JsonArray>("/api/peopleos/approvals");
+        var approvalId = approvals!
+            .Where(item => item?["subject"]?.GetValue<string>() == "Sick Leave - Muhammad Faique")
+            .Max(item => item?["id"]?.GetValue<int>());
+
+        var decision = await _client.PostAsJsonAsync($"/api/peopleos/approvals/{approvalId}/decision", new
+        {
+            decision = "Approved"
+        });
+        decision.EnsureSuccessStatusCode();
+
+        var updatedApproval = await decision.Content.ReadFromJsonAsync<JsonObject>();
+        Assert.Equal("Approved", updatedApproval?["status"]?.GetValue<string>());
+
+        var leave = await _client.GetFromJsonAsync<JsonObject>("/api/peopleos/leave?employeeId=2");
+        Assert.Contains(RequiredArray(leave, "requests"), item =>
+            item?["id"]?.GetValue<int>() == requestId &&
+            item?["status"]?.GetValue<string>() == "Approved");
+    }
+
+    [Fact]
+    public async Task RejectApproval_CreatesUnreadNotificationForRequester()
+    {
+        var create = await _client.PostAsJsonAsync("/api/peopleos/leave/requests", new
+        {
+            employeeId = 2,
+            leaveType = "Annual Leave",
+            fromDate = "2026-07-08",
+            toDate = "2026-07-08",
+            reason = "Personal commitment",
+            contactDuringLeave = "Available on mobile"
+        });
+        create.EnsureSuccessStatusCode();
+
+        var approvals = await _client.GetFromJsonAsync<JsonArray>("/api/peopleos/approvals");
+        var approvalId = approvals!
+            .Where(item => item?["subject"]?.GetValue<string>() == "Annual Leave - Muhammad Faique")
+            .Max(item => item?["id"]?.GetValue<int>());
+
+        var decision = await _client.PostAsJsonAsync($"/api/peopleos/approvals/{approvalId}/decision", new
+        {
+            decision = "Rejected"
+        });
+        decision.EnsureSuccessStatusCode();
+
+        var notifications = await _client.GetFromJsonAsync<JsonArray>("/api/peopleos/notifications?employeeId=2");
+        Assert.Contains(notifications!, item =>
+            item?["title"]?.GetValue<string>() == "Leave request rejected" &&
+            item?["tone"]?.GetValue<string>() == "urgent" &&
+            item?["isRead"]?.GetValue<bool>() == false &&
+            item?["body"]?.GetValue<string>().Contains("Annual Leave - Muhammad Faique") == true);
+    }
+
+    [Fact]
+    public async Task ClearNotification_RemovesRequesterNotification()
+    {
+        var create = await _client.PostAsJsonAsync("/api/peopleos/leave/requests", new
+        {
+            employeeId = 2,
+            leaveType = "Unpaid",
+            fromDate = "2026-07-15",
+            toDate = "2026-07-15",
+            reason = "Personal errand",
+            contactDuringLeave = "Available on mobile"
+        });
+        create.EnsureSuccessStatusCode();
+
+        var approvals = await _client.GetFromJsonAsync<JsonArray>("/api/peopleos/approvals");
+        var approvalId = approvals!
+            .Where(item => item?["subject"]?.GetValue<string>() == "Unpaid - Muhammad Faique")
+            .Max(item => item?["id"]?.GetValue<int>());
+
+        var decision = await _client.PostAsJsonAsync($"/api/peopleos/approvals/{approvalId}/decision", new
+        {
+            decision = "Rejected"
+        });
+        decision.EnsureSuccessStatusCode();
+
+        var notifications = await _client.GetFromJsonAsync<JsonArray>("/api/peopleos/notifications?employeeId=2");
+        var notificationId = notifications!
+            .Where(item => item?["body"]?.GetValue<string>().Contains("Unpaid - Muhammad Faique") == true)
+            .Max(item => item?["id"]?.GetValue<int>());
+
+        var clear = await _client.DeleteAsync($"/api/peopleos/notifications/{notificationId}?employeeId=2");
+        clear.EnsureSuccessStatusCode();
+
+        var afterClear = await _client.GetFromJsonAsync<JsonArray>("/api/peopleos/notifications?employeeId=2");
+        Assert.DoesNotContain(afterClear!, item => item?["id"]?.GetValue<int>() == notificationId);
     }
 
     [Fact]

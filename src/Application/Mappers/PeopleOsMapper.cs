@@ -52,4 +52,7 @@ public static class PeopleOsMapper
 
     public static LifecycleSignalResponseDto ToResponse(this LifecycleSignal entity) =>
         new(entity.Id, entity.Label, entity.Value, entity.Status, entity.DisplayOrder);
+
+    public static EmployeeNotificationResponseDto ToResponse(this EmployeeNotification entity) =>
+        new(entity.Id, entity.EmployeeId, entity.Title, entity.Body, entity.Tone, entity.IsRead, entity.CreatedAt);
 }

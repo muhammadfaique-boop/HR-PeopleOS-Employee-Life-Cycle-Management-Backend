@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PeopleOS.Api.Infrastructure.Database;
 
@@ -11,9 +12,11 @@ using PeopleOS.Api.Infrastructure.Database;
 namespace PeopleOS.Api.Migrations
 {
     [DbContext(typeof(PeopleOsDbContext))]
-    partial class PeopleOsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260518143236_AddEmployeeNotifications")]
+    partial class AddEmployeeNotifications
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

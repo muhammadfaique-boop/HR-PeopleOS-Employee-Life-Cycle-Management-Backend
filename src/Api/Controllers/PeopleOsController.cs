@@ -15,7 +15,8 @@ public class PeopleOsController(
     IExpenseService expenseService,
     IResignationService resignationService,
     IPolicyService policyService,
-    IApprovalService approvalService) : ControllerBase
+    IApprovalService approvalService,
+    INotificationService notificationService) : ControllerBase
 {
     [HttpGet("dashboard")]
     public async Task<ActionResult<DashboardResponseDto>> Dashboard() =>
@@ -101,4 +102,35 @@ public class PeopleOsController(
     [HttpGet("approvals")]
     public async Task<ActionResult<List<ApprovalTaskResponseDto>>> Approvals() =>
         Ok(await approvalService.GetApprovalsAsync());
+
+    [HttpPost("approvals/{approvalId:int}/decision")]
+    public async Task<ActionResult<ApprovalTaskResponseDto>> DecideApproval(int approvalId, ApprovalDecisionRequestDto request)
+    {
+        if (!request.Decision.Equals("Approved", StringComparison.OrdinalIgnoreCase) &&
+            !request.Decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("Decision must be Approved or Rejected.");
+        }
+
+        var approval = await approvalService.DecideAsync(approvalId, request);
+        return approval is null ? NotFound() : Ok(approval);
+    }
+
+    [HttpGet("notifications")]
+    public async Task<ActionResult<List<EmployeeNotificationResponseDto>>> Notifications(int employeeId = 2) =>
+        Ok(await notificationService.GetNotificationsAsync(employeeId));
+
+    [HttpPost("notifications/read")]
+    public async Task<IActionResult> MarkNotificationsRead(int employeeId = 2)
+    {
+        await notificationService.MarkAllReadAsync(employeeId);
+        return NoContent();
+    }
+
+    [HttpDelete("notifications/{notificationId:int}")]
+    public async Task<IActionResult> ClearNotification(int notificationId, int employeeId = 2)
+    {
+        var cleared = await notificationService.ClearAsync(employeeId, notificationId);
+        return cleared ? NoContent() : NotFound();
+    }
 }

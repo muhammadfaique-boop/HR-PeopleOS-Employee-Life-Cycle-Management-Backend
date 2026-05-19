@@ -34,6 +34,7 @@ public interface IApprovalRepository
 {
     Task<List<ApprovalTask>> GetPendingAsync();
     Task<List<ApprovalTask>> GetAllAsync();
+    Task<ApprovalTask?> GetByIdAsync(int id);
     Task AddAsync(ApprovalTask task);
     Task<int> NextIdAsync();
 }
@@ -42,6 +43,7 @@ public interface IAttendanceRepository
 {
     Task<List<AttendanceRecord>> GetRecordsAsync(int employeeId);
     Task<List<AttendanceCorrection>> GetCorrectionsAsync(int employeeId);
+    Task<AttendanceCorrection?> GetCorrectionByIdAsync(int id);
     Task AddCorrectionAsync(AttendanceCorrection correction);
     Task<int> NextCorrectionIdAsync();
 }
@@ -49,7 +51,9 @@ public interface IAttendanceRepository
 public interface ILeaveRepository
 {
     Task<List<LeaveBalance>> GetBalancesAsync(int employeeId);
+    Task<LeaveBalance?> GetBalanceAsync(int employeeId, string leaveType);
     Task<List<LeaveRequest>> GetRequestsAsync(int employeeId);
+    Task<LeaveRequest?> GetRequestByIdAsync(int id);
     Task<List<LeaveRequest>> GetApprovedUpcomingAsync(DateOnly fromDate);
     Task AddRequestAsync(LeaveRequest request);
     Task<int> NextRequestIdAsync();
@@ -68,6 +72,7 @@ public interface IPolicyRepository
 public interface IExpenseRepository
 {
     Task<List<ExpenseClaim>> GetByEmployeeAsync(int employeeId);
+    Task<ExpenseClaim?> GetByIdAsync(int id);
     Task AddAsync(ExpenseClaim claim);
     Task<int> NextIdAsync();
 }
@@ -75,6 +80,7 @@ public interface IExpenseRepository
 public interface IResignationRepository
 {
     Task<List<ResignationRequest>> GetByEmployeeAsync(int employeeId);
+    Task<ResignationRequest?> GetByIdAsync(int id);
     Task AddAsync(ResignationRequest resignation);
     Task<int> NextIdAsync();
 }
@@ -86,6 +92,15 @@ public interface IReferenceDataRepository
     Task<List<QuickAction>> GetQuickActionsAsync();
     Task<List<LifecycleSignal>> GetLifecycleSignalsAsync();
     Task<List<ActivityFeedItem>> GetRecentActivityAsync();
+}
+
+public interface INotificationRepository
+{
+    Task<List<EmployeeNotification>> GetByEmployeeAsync(int employeeId);
+    Task AddAsync(EmployeeNotification notification);
+    Task MarkAllReadAsync(int employeeId);
+    Task<bool> ClearAsync(int employeeId, int notificationId);
+    Task<int> NextIdAsync();
 }
 
 public interface IUnitOfWork

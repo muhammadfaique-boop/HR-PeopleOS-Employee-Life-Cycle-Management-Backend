@@ -26,6 +26,7 @@ public class PeopleOsDbContext(DbContextOptions<PeopleOsDbContext> options) : Db
     public DbSet<QuickAction> QuickActions => Set<QuickAction>();
     public DbSet<LifecycleSignal> LifecycleSignals => Set<LifecycleSignal>();
     public DbSet<ActivityFeedItem> ActivityFeedItems => Set<ActivityFeedItem>();
+    public DbSet<EmployeeNotification> EmployeeNotifications => Set<EmployeeNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

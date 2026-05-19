@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PeopleOS.Api.Infrastructure.Database;
 
@@ -11,9 +12,11 @@ using PeopleOS.Api.Infrastructure.Database;
 namespace PeopleOS.Api.Migrations
 {
     [DbContext(typeof(PeopleOsDbContext))]
-    partial class PeopleOsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260518142655_AddApprovalDecisionReferences")]
+    partial class AddApprovalDecisionReferences
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -375,37 +378,6 @@ namespace PeopleOS.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Documents");
-                });
-
-            modelBuilder.Entity("PeopleOS.Api.Domain.Entities.EmployeeNotification", b =>
-                {
-                    b.Property<int>("Id")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("EmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Tone")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("EmployeeNotifications");
                 });
 
             modelBuilder.Entity("PeopleOS.Api.Domain.Entities.ExpenseClaim", b =>

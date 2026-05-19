@@ -9,4 +9,7 @@ public class ApprovalTask
     public string ApproverRole { get; set; } = "";
     public string Status { get; set; } = "";
     public DateOnly DueDate { get; set; }
+    public string ReferenceType { get; set; } = "";
+    public int? ReferenceId { get; set; }
+    public DateTime? DecidedAt { get; set; }
 }

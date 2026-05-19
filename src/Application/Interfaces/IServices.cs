@@ -6,6 +6,7 @@ public interface IAuthService
 {
     Task<LoginResponseDto?> LoginAsync(LoginRequestDto request);
     Task<bool> ChangePasswordAsync(ChangePasswordRequestDto request);
+    Task<bool> ResetPasswordAsync(ResetPasswordRequestDto request);
 }
 
 public interface IDashboardService
@@ -58,4 +59,12 @@ public interface IPolicyService
 public interface IApprovalService
 {
     Task<List<ApprovalTaskResponseDto>> GetApprovalsAsync();
+    Task<ApprovalTaskResponseDto?> DecideAsync(int approvalId, ApprovalDecisionRequestDto request);
+}
+
+public interface INotificationService
+{
+    Task<List<EmployeeNotificationResponseDto>> GetNotificationsAsync(int employeeId);
+    Task MarkAllReadAsync(int employeeId);
+    Task<bool> ClearAsync(int employeeId, int notificationId);
 }

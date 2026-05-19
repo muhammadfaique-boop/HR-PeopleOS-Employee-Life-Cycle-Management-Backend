@@ -44,6 +44,19 @@ public class AuthService(IAuthRepository authRepository, IEmployeeRepository emp
         return true;
     }
 
+    public async Task<bool> ResetPasswordAsync(ResetPasswordRequestDto request)
+    {
+        var user = await authRepository.FindByEmailAsync(request.Email);
+        if (user is null)
+        {
+            return false;
+        }
+
+        user.Password = request.NewPassword;
+        await authRepository.SaveChangesAsync();
+        return true;
+    }
+
     private static string NormalizeRole(string role) => role.Equals("Admin", StringComparison.OrdinalIgnoreCase)
         ? "Super Admin"
         : role;
@@ -193,7 +206,7 @@ public class AttendanceService(
         };
 
         await attendance.AddCorrectionAsync(correction);
-        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Attendance Correction", $"{employee.FullName} - {request.WorkDate:MMM dd, yyyy}", employee.FullName, employee.Manager, 2));
+        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Attendance Correction", $"{employee.FullName} - {request.WorkDate:MMM dd, yyyy}", employee.FullName, employee.Manager, 2, "AttendanceCorrection", correction.Id));
         await unitOfWork.SaveChangesAsync();
 
         return correction.ToResponse();
@@ -216,8 +229,8 @@ public class AttendanceService(
         return new AttendanceDownloadResponseDto($"Login_UserId_{employeeId}.Attendance log.csv", "text/csv", Encoding.UTF8.GetBytes(content));
     }
 
-    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays) =>
-        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)) };
+    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays, string referenceType, int referenceId) =>
+        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)), ReferenceType = referenceType, ReferenceId = referenceId };
 }
 
 public class LeaveService(
@@ -239,6 +252,7 @@ public class LeaveService(
             return null;
         }
 
+        var totalDays = Math.Max(1, request.ToDate.DayNumber - request.FromDate.DayNumber + 1);
         var leave = new LeaveRequest
         {
             Id = await leaves.NextRequestIdAsync(),
@@ -246,7 +260,7 @@ public class LeaveService(
             LeaveType = request.LeaveType,
             FromDate = request.FromDate,
             ToDate = request.ToDate,
-            TotalDays = Math.Max(1, request.ToDate.DayNumber - request.FromDate.DayNumber + 1),
+            TotalDays = totalDays,
             Reason = request.Reason,
             ContactDuringLeave = request.ContactDuringLeave,
             AttachmentFileName = request.AttachmentFileName ?? "",
@@ -254,15 +268,21 @@ public class LeaveService(
             Status = "Pending line manager"
         };
 
+        var balance = await leaves.GetBalanceAsync(request.EmployeeId, request.LeaveType);
+        if (balance is not null)
+        {
+            balance.AvailableBalance = Math.Max(0, balance.AvailableBalance - totalDays);
+        }
+
         await leaves.AddRequestAsync(leave);
-        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Leave", $"{request.LeaveType} - {employee.FullName}", employee.FullName, employee.Manager, 1));
+        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Leave", $"{request.LeaveType} - {employee.FullName}", employee.FullName, employee.Manager, 1, "LeaveRequest", leave.Id));
         await unitOfWork.SaveChangesAsync();
 
         return leave.ToResponse();
     }
 
-    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays) =>
-        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)) };
+    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays, string referenceType, int referenceId) =>
+        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)), ReferenceType = referenceType, ReferenceId = referenceId };
 }
 
 public class BenefitsService(IBenefitsRepository benefits) : IBenefitsService
@@ -300,13 +320,13 @@ public class ExpenseService(IExpenseRepository expenses, IEmployeeRepository emp
         };
 
         await expenses.AddAsync(claim);
-        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Expense", $"{request.ClaimType} - {employee.FullName}", employee.FullName, employee.Manager, 3));
+        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Expense", $"{request.ClaimType} - {employee.FullName}", employee.FullName, employee.Manager, 3, "ExpenseClaim", claim.Id));
         await unitOfWork.SaveChangesAsync();
         return claim.ToResponse();
     }
 
-    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays) =>
-        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)) };
+    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays, string referenceType, int referenceId) =>
+        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)), ReferenceType = referenceType, ReferenceId = referenceId };
 }
 
 public class ResignationService(IResignationRepository resignations, IEmployeeRepository employees, IApprovalRepository approvals, IUnitOfWork unitOfWork) : IResignationService
@@ -334,13 +354,13 @@ public class ResignationService(IResignationRepository resignations, IEmployeeRe
         };
 
         await resignations.AddAsync(resignation);
-        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Resignation", $"Resignation request - {employee.FullName}", employee.FullName, employee.Manager, 2));
+        await approvals.AddAsync(CreateApproval(await approvals.NextIdAsync(), "Resignation", $"Resignation request - {employee.FullName}", employee.FullName, employee.Manager, 2, "ResignationRequest", resignation.Id));
         await unitOfWork.SaveChangesAsync();
         return resignation.ToResponse();
     }
 
-    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays) =>
-        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)) };
+    private static ApprovalTask CreateApproval(int id, string type, string subject, string requester, string manager, int dueInDays, string referenceType, int referenceId) =>
+        new() { Id = id, Type = type, Subject = subject, Requester = requester, ApproverRole = $"Line Manager: {manager}", Status = "Pending", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(dueInDays)), ReferenceType = referenceType, ReferenceId = referenceId };
 }
 
 public class PolicyService(IPolicyRepository policies) : IPolicyService
@@ -349,8 +369,152 @@ public class PolicyService(IPolicyRepository policies) : IPolicyService
         (await policies.GetAllAsync()).Select(x => x.ToResponse()).ToList();
 }
 
-public class ApprovalService(IApprovalRepository approvals) : IApprovalService
+public class ApprovalService(
+    IApprovalRepository approvals,
+    IAttendanceRepository attendance,
+    ILeaveRepository leaves,
+    IExpenseRepository expenses,
+    IResignationRepository resignations,
+    INotificationRepository notifications,
+    IUnitOfWork unitOfWork) : IApprovalService
 {
     public async Task<List<ApprovalTaskResponseDto>> GetApprovalsAsync() =>
         (await approvals.GetAllAsync()).Select(x => x.ToResponse()).ToList();
+
+    public async Task<ApprovalTaskResponseDto?> DecideAsync(int approvalId, ApprovalDecisionRequestDto request)
+    {
+        var decision = NormalizeDecision(request.Decision);
+        if (decision is null)
+        {
+            return null;
+        }
+
+        var approval = await approvals.GetByIdAsync(approvalId);
+        if (approval is null)
+        {
+            return null;
+        }
+
+        approval.Status = decision;
+        approval.DecidedAt = DateTime.UtcNow;
+        await ApplyDecisionToReferenceAsync(approval, decision);
+        await unitOfWork.SaveChangesAsync();
+
+        return approval.ToResponse();
+    }
+
+    private async Task ApplyDecisionToReferenceAsync(ApprovalTask approval, string decision)
+    {
+        if (approval.ReferenceId is null)
+        {
+            return;
+        }
+
+        switch (approval.ReferenceType)
+        {
+            case "AttendanceCorrection":
+                var correction = await attendance.GetCorrectionByIdAsync(approval.ReferenceId.Value);
+                if (correction is not null)
+                {
+                    correction.Status = decision;
+                    await AddDecisionNotificationAsync(correction.EmployeeId, "Attendance correction", approval.Subject, decision);
+                }
+                break;
+            case "LeaveRequest":
+                var leave = await leaves.GetRequestByIdAsync(approval.ReferenceId.Value);
+                if (leave is not null)
+                {
+                    await ApplyLeaveDecisionAsync(leave, decision);
+                    await AddDecisionNotificationAsync(leave.EmployeeId, "Leave request", approval.Subject, decision);
+                }
+                break;
+            case "ExpenseClaim":
+                var claim = await expenses.GetByIdAsync(approval.ReferenceId.Value);
+                if (claim is not null)
+                {
+                    claim.Status = decision;
+                    await AddDecisionNotificationAsync(claim.EmployeeId, "Expense claim", approval.Subject, decision);
+                }
+                break;
+            case "ResignationRequest":
+                var resignation = await resignations.GetByIdAsync(approval.ReferenceId.Value);
+                if (resignation is not null)
+                {
+                    resignation.Status = decision;
+                    await AddDecisionNotificationAsync(resignation.EmployeeId, "Resignation request", approval.Subject, decision);
+                }
+                break;
+        }
+    }
+
+    private async Task AddDecisionNotificationAsync(int employeeId, string titlePrefix, string subject, string decision)
+    {
+        await notifications.AddAsync(new EmployeeNotification
+        {
+            Id = await notifications.NextIdAsync(),
+            EmployeeId = employeeId,
+            Title = $"{titlePrefix} {decision.ToLowerInvariant()}",
+            Body = $"{subject} has been {decision.ToLowerInvariant()} by your line manager.",
+            Tone = decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase) ? "urgent" : "info",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    private async Task ApplyLeaveDecisionAsync(LeaveRequest leave, string decision)
+    {
+        var previousStatus = leave.Status;
+        leave.Status = decision;
+
+        if (!decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase) ||
+            previousStatus.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var balance = await leaves.GetBalanceAsync(leave.EmployeeId, leave.LeaveType);
+        if (balance is not null)
+        {
+            balance.AvailableBalance = Math.Min(balance.AnnualEntitlement, balance.AvailableBalance + leave.TotalDays);
+        }
+    }
+
+    private static string? NormalizeDecision(string decision)
+    {
+        if (decision.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Approved";
+        }
+
+        if (decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Rejected";
+        }
+
+        return null;
+    }
+}
+
+public class NotificationService(INotificationRepository notifications, IUnitOfWork unitOfWork) : INotificationService
+{
+    public async Task<List<EmployeeNotificationResponseDto>> GetNotificationsAsync(int employeeId) =>
+        (await notifications.GetByEmployeeAsync(employeeId)).Select(x => x.ToResponse()).ToList();
+
+    public async Task MarkAllReadAsync(int employeeId)
+    {
+        await notifications.MarkAllReadAsync(employeeId);
+        await unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task<bool> ClearAsync(int employeeId, int notificationId)
+    {
+        var cleared = await notifications.ClearAsync(employeeId, notificationId);
+        if (!cleared)
+        {
+            return false;
+        }
+
+        await unitOfWork.SaveChangesAsync();
+        return true;
+    }
 }

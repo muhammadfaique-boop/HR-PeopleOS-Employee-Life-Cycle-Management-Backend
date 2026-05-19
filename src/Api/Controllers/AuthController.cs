@@ -23,4 +23,13 @@ public class AuthController(IAuthService authService) : ControllerBase
             ? Ok(new { message = "Password changed successfully." })
             : BadRequest(new { message = "Current password is not correct." });
     }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequestDto request)
+    {
+        var reset = await authService.ResetPasswordAsync(request);
+        return reset
+            ? Ok(new { message = "Password reset successfully." })
+            : NotFound(new { message = "No user found for this email." });
+    }
 }
